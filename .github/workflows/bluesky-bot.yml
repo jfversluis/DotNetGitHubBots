@@ -1,0 +1,46 @@
+name: Bluesky GitHub Bot
+
+on:
+  schedule:
+    # Run every 2 hours
+    - cron: '0 */2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  post-to-bluesky:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install atproto requests
+      
+      - name: Fetch and post new issues to Bluesky
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          GITHUB_REPO_OWNER: ${{ secrets.GITHUB_REPO_OWNER }}
+          GITHUB_REPO_NAME: ${{ secrets.GITHUB_REPO_NAME }}
+          LAST_ISSUE_NUMBER: ${{ vars.BLUESKY_LAST_ISSUE_NUMBER || '0' }}
+        run: |
+          python scripts/bluesky_bot.py
+      
+      - name: Update last issue number
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Read the updated last issue number from the script output
+          if [ -f /tmp/last_issue_number.txt ]; then
+            LAST_ISSUE=$(cat /tmp/last_issue_number.txt)
+            gh variable set BLUESKY_LAST_ISSUE_NUMBER --body "$LAST_ISSUE"
+            echo "Updated BLUESKY_LAST_ISSUE_NUMBER to $LAST_ISSUE"
+          fi
