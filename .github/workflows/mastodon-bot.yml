@@ -31,18 +31,6 @@ jobs:
           GITHUB_REPO_OWNER: ${{ secrets.GITHUB_REPO_OWNER }}
           GITHUB_REPO_NAME: ${{ secrets.GITHUB_REPO_NAME }}
           VISIBILITY: ${{ secrets.MASTODON_VISIBILITY || 'unlisted' }}
-          LAST_ISSUE_NUMBER: ${{ vars.MASTODON_LAST_ISSUE_NUMBER || '0' }}
+          INTERVAL_MINUTES: '10'  # Check last 10 minutes (covers 2 workflow runs)
         run: |
           python scripts/mastodon_bot.py
-      
-      - name: Update last issue number
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Read the updated last issue number from the script output
-          if [ -f /tmp/last_issue_number.txt ]; then
-            LAST_ISSUE=$(cat /tmp/last_issue_number.txt)
-            gh variable set MASTODON_LAST_ISSUE_NUMBER --body "$LAST_ISSUE"
-            echo "Updated MASTODON_LAST_ISSUE_NUMBER to $LAST_ISSUE"
-          fi

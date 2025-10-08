@@ -10,7 +10,7 @@ Automated bots that post new GitHub issues and pull requests to social media pla
 - ⚙️ **GitHub Actions powered**: Runs entirely on GitHub Actions, no external hosting required
 - 🔒 **Secure**: Uses GitHub Secrets for sensitive credentials
 - ⏰ **Scheduled runs**: Configurable schedule (default: every 5 minutes)
-- 📝 **State management**: Tracks the last published issue to avoid duplicates
+- 📝 **Duplicate prevention**: Uses time-based filtering with in-memory deduplication to prevent duplicate posts
 
 ## Setup Instructions
 
@@ -39,13 +39,7 @@ Automated bots that post new GitHub issues and pull requests to social media pla
    - `GITHUB_REPO_NAME`: The name of the repository to monitor
    - `MASTODON_VISIBILITY` (optional): Post visibility (`public`, `unlisted`, `private`, or `direct`). Default: `unlisted`
 
-3. **Initialize the Last Issue Number**:
-   
-   Go to Settings → Secrets and variables → Actions → Variables tab, and create:
-   
-   - `MASTODON_LAST_ISSUE_NUMBER`: Set to `0` to start from the beginning, or set to a specific issue number to start from there
-
-4. **Enable the Workflow**:
+3. **Enable the Workflow**:
    
    The workflow is located at `.github/workflows/mastodon-bot.yml` and will run automatically every 5 minutes. You can also trigger it manually from the Actions tab.
 
@@ -66,13 +60,7 @@ Automated bots that post new GitHub issues and pull requests to social media pla
    - `GITHUB_REPO_OWNER`: The owner/org of the repository to monitor
    - `GITHUB_REPO_NAME`: The name of the repository to monitor
 
-3. **Initialize the Last Issue Number**:
-   
-   Go to Settings → Secrets and variables → Actions → Variables tab, and create:
-   
-   - `BLUESKY_LAST_ISSUE_NUMBER`: Set to `0` to start from the beginning, or set to a specific issue number to start from there
-
-4. **Enable the Workflow**:
+3. **Enable the Workflow**:
    
    The workflow is located at `.github/workflows/bluesky-bot.yml` and will run automatically every 5 minutes. You can also trigger it manually from the Actions tab.
 
@@ -90,9 +78,13 @@ on:
 
 **Note**: The original MastodonGitHubBot checked every 2 minutes, but GitHub Actions has a minimum cron schedule interval of 5 minutes. This is the closest we can get to the original behavior while using GitHub Actions.
 
-### Issue Tracking
+### Issue Detection
 
-Each bot maintains its own state variable (`MASTODON_LAST_ISSUE_NUMBER` or `BLUESKY_LAST_ISSUE_NUMBER`) to track the last published issue. This prevents duplicate posts and ensures new issues are posted in order.
+The bots use time-based filtering to detect new issues:
+- Each run checks for issues created in the last 10 minutes (configurable via `INTERVAL_MINUTES`)
+- This covers 2 workflow runs (at 5-minute intervals) to ensure no issues are missed
+- Duplicate prevention is handled in-memory during each run
+- No persistent state is required, making it compatible with stateless GitHub Actions runners
 
 ### Manual Trigger
 
@@ -133,28 +125,32 @@ Modify the `post_to_mastodon()` or `post_to_bluesky()` functions in the respecti
 You can:
 1. Duplicate and rename the workflow files
 2. Use different secret names for each repository
-3. Set up different state variables for each
 
 ## Troubleshooting
 
 ### Bot not posting
 
 1. Check that all required secrets are set correctly
-2. Verify the last issue number variable is set
-3. Check the Actions tab for error logs
-4. Ensure your access tokens haven't expired
+2. Check the Actions tab for error logs
+3. Ensure your access tokens haven't expired
+4. Verify the repository has had new issues/PRs in the last 10 minutes
 
 ### Duplicate posts
 
-This shouldn't happen if the state variable is properly maintained. If it does:
-1. Check the variable value in Settings → Actions → Variables
-2. Manually set it to the latest published issue number
+The bots use in-memory duplicate prevention during each run. Duplicates should only occur if:
+- Multiple workflow runs happen simultaneously (rare)
+- You manually trigger the workflow multiple times quickly
+
+To avoid this:
+- Don't trigger the workflow manually while a scheduled run is active
+- Adjust `INTERVAL_MINUTES` if you change the schedule
 
 ### Rate limiting
 
 - GitHub API allows 60 requests/hour for unauthenticated requests, 5000/hour for authenticated
 - The `GITHUB_TOKEN` is automatically used for authentication
 - Mastodon and Bluesky have their own rate limits
+- Running every 5 minutes = 12 runs/hour, well within limits
 
 ## Contributing
 

@@ -30,18 +30,6 @@ jobs:
           BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
           GITHUB_REPO_OWNER: ${{ secrets.GITHUB_REPO_OWNER }}
           GITHUB_REPO_NAME: ${{ secrets.GITHUB_REPO_NAME }}
-          LAST_ISSUE_NUMBER: ${{ vars.BLUESKY_LAST_ISSUE_NUMBER || '0' }}
+          INTERVAL_MINUTES: '10'  # Check last 10 minutes (covers 2 workflow runs)
         run: |
           python scripts/bluesky_bot.py
-      
-      - name: Update last issue number
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Read the updated last issue number from the script output
-          if [ -f /tmp/last_issue_number.txt ]; then
-            LAST_ISSUE=$(cat /tmp/last_issue_number.txt)
-            gh variable set BLUESKY_LAST_ISSUE_NUMBER --body "$LAST_ISSUE"
-            echo "Updated BLUESKY_LAST_ISSUE_NUMBER to $LAST_ISSUE"
-          fi

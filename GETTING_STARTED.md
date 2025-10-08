@@ -64,22 +64,7 @@ This guide will walk you through setting up the GitHub bots from scratch.
 
 **Note**: You can reuse `GITHUB_REPO_OWNER` and `GITHUB_REPO_NAME` for both bots if monitoring the same repository.
 
-## Step 3: Initialize State Variables
-
-1. Still in Settings → Secrets and variables → Actions
-2. Click the "Variables" tab
-3. Click "New repository variable"
-
-### Add these variables:
-
-| Variable Name | Value | Description |
-|---------------|-------|-------------|
-| `MASTODON_LAST_ISSUE_NUMBER` | `0` | Start from beginning, or set to a specific issue number |
-| `BLUESKY_LAST_ISSUE_NUMBER` | `0` | Start from beginning, or set to a specific issue number |
-
-**Tip**: If you don't want to post old issues, set these to the latest issue number in your repository.
-
-## Step 4: Test the Bots
+## Step 3: Test the Bots
 
 1. Go to the "Actions" tab in your repository
 2. You should see two workflows:
@@ -100,12 +85,12 @@ This guide will walk you through setting up the GitHub bots from scratch.
    - Wait a few seconds, then refresh
    - Click on the run to see logs
 
-## Step 5: Check the Results
+## Step 4: Check the Results
 
 ### Successful Run:
 - You should see green checkmarks
 - Check your Mastodon/Bluesky feed for new posts
-- The variables should be updated automatically
+- The bot will have posted any issues created in the last 10 minutes
 
 ### Failed Run:
 - Click on the failed run to see error logs
@@ -113,9 +98,9 @@ This guide will walk you through setting up the GitHub bots from scratch.
   - Invalid credentials
   - Missing secrets
   - Wrong repository owner/name
-  - No new issues to post
+  - No new issues in the last 10 minutes
 
-## Step 6: Verify Scheduled Runs
+## Step 5: Verify Scheduled Runs
 
 The bots will now run automatically every 5 minutes. You can:
 - Monitor runs in the Actions tab
@@ -130,9 +115,9 @@ The bots will now run automatically every 5 minutes. You can:
 - Check spelling and capitalization
 
 ### "No new issues to publish"
-- This is normal if there are no new issues
-- Check that `LAST_ISSUE_NUMBER` variables are set correctly
-- Try setting them to `0` to start over
+- This is normal if there are no new issues created in the last 10 minutes
+- The bot checks issues created within the last 10 minutes by default
+- If you want to test, create a new issue and run the workflow manually
 
 ### "Invalid credentials"
 - Mastodon: Regenerate access token and update secret
@@ -167,12 +152,12 @@ See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for more customization options.
 Before asking for help, verify:
 
 - [ ] All required secrets are set in GitHub
-- [ ] Variables are initialized (can be `0`)
 - [ ] Workflow files are present in `.github/workflows/`
 - [ ] You've tried running the workflow manually
 - [ ] You've checked the workflow logs for errors
 - [ ] Repository owner and name are correct
 - [ ] Credentials are valid and not expired
+- [ ] Repository has had new issues/PRs in the last 10 minutes (for testing)
 
 ---
 

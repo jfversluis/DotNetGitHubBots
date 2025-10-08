@@ -1,6 +1,6 @@
 # GitHub Actions Secrets Configuration Examples
 
-This file shows examples of the secrets and variables you need to configure for the bots.
+This file shows examples of the secrets you need to configure for the bots.
 
 ## GitHub Repository Settings
 
@@ -23,17 +23,7 @@ GITHUB_REPO_OWNER=dotnet
 GITHUB_REPO_NAME=runtime
 ```
 
-### Variables (Settings → Secrets and variables → Actions → Variables)
-
-#### For Mastodon Bot:
-```
-MASTODON_LAST_ISSUE_NUMBER=0  # Set to 0 to start from scratch, or the last published issue number
-```
-
-#### For Bluesky Bot:
-```
-BLUESKY_LAST_ISSUE_NUMBER=0  # Set to 0 to start from scratch, or the last published issue number
-```
+**Note**: No variables are needed! The bots use time-based filtering instead of persistent state.
 
 ## How to Get Credentials
 
@@ -54,6 +44,6 @@ BLUESKY_LAST_ISSUE_NUMBER=0  # Set to 0 to start from scratch, or the last publi
 ## Important Notes
 
 - Never commit secrets to your repository
-- The `GITHUB_TOKEN` is automatically provided by GitHub Actions
-- Variables can be updated by the workflow (for tracking last issue numbers)
+- The `GITHUB_TOKEN` is automatically provided by GitHub Actions for API rate limit improvements
+- No persistent state or variables are needed - the bots use time-based filtering
 - Secrets cannot be read or updated by workflows, only used

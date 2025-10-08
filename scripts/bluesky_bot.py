@@ -7,6 +7,7 @@ Fetches new issues/PRs from a GitHub repository and posts them to Bluesky.
 import os
 import sys
 import requests
+from datetime import datetime, timedelta
 from atproto import Client
 
 def get_env_var(name, default=None, required=True):
@@ -17,13 +18,19 @@ def get_env_var(name, default=None, required=True):
         sys.exit(1)
     return value
 
-def get_unpublished_issues(repo_owner, repo_name, last_issue_number):
-    """Fetch new issues and PRs from GitHub that haven't been published yet."""
+def get_recent_issues(repo_owner, repo_name, since_minutes=10):
+    """Fetch issues and PRs from GitHub created in the last N minutes."""
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/issues"
+    
+    # Calculate the time threshold
+    since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
+    since_iso = since_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    
     params = {
-        "state": "open",
+        "state": "all",  # Get both open and closed to avoid missing any
         "sort": "created",
         "direction": "desc",
+        "since": since_iso,
         "per_page": 100
     }
     
@@ -41,20 +48,23 @@ def get_unpublished_issues(repo_owner, repo_name, last_issue_number):
         response.raise_for_status()
         issues = response.json()
         
-        # Filter issues newer than last_issue_number and sort ascending by number
-        new_issues = [
-            issue for issue in issues 
-            if issue['number'] > last_issue_number
-        ]
-        new_issues.sort(key=lambda x: x['number'])
+        # Sort ascending by number for chronological posting
+        issues.sort(key=lambda x: x['number'])
         
-        return new_issues
+        return issues
     except requests.exceptions.RequestException as e:
         print(f"Error fetching issues from GitHub: {e}", file=sys.stderr)
         sys.exit(1)
 
-def post_to_bluesky(bluesky_client, issue):
-    """Post an issue/PR to Bluesky."""
+def post_to_bluesky(bluesky_client, issue, posted_ids):
+    """Post an issue/PR to Bluesky if not already posted."""
+    issue_id = issue['number']
+    
+    # Check if already posted in this run (duplicate prevention)
+    if issue_id in posted_ids:
+        print(f"⊘ Skipping duplicate #{issue_id}: {issue['title']}")
+        return False
+    
     # Determine if it's a PR or issue
     issue_type = "PR" if "pull_request" in issue else "Issue"
     
@@ -68,6 +78,7 @@ def post_to_bluesky(bluesky_client, issue):
     try:
         bluesky_client.send_post(text=text)
         print(f"✓ Posted {issue_type} #{issue['number']}: {issue['title']}")
+        posted_ids.add(issue_id)
         return True
     except Exception as e:
         print(f"✗ Error posting {issue_type} #{issue['number']}: {e}", file=sys.stderr)
@@ -80,11 +91,13 @@ def main():
     bluesky_app_password = get_env_var("BLUESKY_APP_PASSWORD")
     repo_owner = get_env_var("GITHUB_REPO_OWNER")
     repo_name = get_env_var("GITHUB_REPO_NAME")
-    last_issue_number = int(get_env_var("LAST_ISSUE_NUMBER", default="0", required=False))
+    
+    # Get the interval (default to 10 minutes to cover 2 workflow runs at 5-minute intervals)
+    interval_minutes = int(get_env_var("INTERVAL_MINUTES", default="10", required=False))
     
     print(f"Starting Bluesky GitHub Bot")
     print(f"Repository: {repo_owner}/{repo_name}")
-    print(f"Last published issue number: {last_issue_number}")
+    print(f"Checking for issues created in the last {interval_minutes} minutes")
     print(f"Bluesky handle: {bluesky_handle}")
     print()
     
@@ -97,33 +110,26 @@ def main():
         print(f"Error logging in to Bluesky: {e}", file=sys.stderr)
         sys.exit(1)
     
-    # Fetch unpublished issues
-    print("Fetching new issues from GitHub...")
-    new_issues = get_unpublished_issues(repo_owner, repo_name, last_issue_number)
-    print(f"Found {len(new_issues)} new issues/PRs to publish")
+    # Fetch recent issues
+    print(f"Fetching issues from the last {interval_minutes} minutes...")
+    recent_issues = get_recent_issues(repo_owner, repo_name, interval_minutes)
+    print(f"Found {len(recent_issues)} issues/PRs created recently")
     print()
     
-    if not new_issues:
+    if not recent_issues:
         print("No new issues to publish")
         return
     
-    # Post each issue to Bluesky
+    # Post each issue to Bluesky with duplicate tracking
     posted_count = 0
-    latest_issue_number = last_issue_number
+    posted_ids = set()
     
-    for issue in new_issues:
-        if post_to_bluesky(client, issue):
+    for issue in recent_issues:
+        if post_to_bluesky(client, issue, posted_ids):
             posted_count += 1
-            latest_issue_number = max(latest_issue_number, issue['number'])
     
     print()
-    print(f"Summary: Posted {posted_count} out of {len(new_issues)} issues/PRs")
-    
-    # Save the latest issue number for next run
-    with open("/tmp/last_issue_number.txt", "w") as f:
-        f.write(str(latest_issue_number))
-    
-    print(f"Updated last issue number to: {latest_issue_number}")
+    print(f"Summary: Posted {posted_count} out of {len(recent_issues)} issues/PRs")
 
 if __name__ == "__main__":
     main()
