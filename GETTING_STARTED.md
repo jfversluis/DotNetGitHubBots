@@ -117,7 +117,7 @@ This guide will walk you through setting up the GitHub bots from scratch.
 
 ## Step 6: Verify Scheduled Runs
 
-The bots will now run automatically every 2 hours. You can:
+The bots will now run automatically every 5 minutes. You can:
 - Monitor runs in the Actions tab
 - Adjust the schedule in the workflow files if needed
 - Disable/enable workflows as needed

@@ -9,7 +9,7 @@ Automated bots that post new GitHub issues and pull requests to social media pla
 - 🦋 **Bluesky support**: Posts to Bluesky
 - ⚙️ **GitHub Actions powered**: Runs entirely on GitHub Actions, no external hosting required
 - 🔒 **Secure**: Uses GitHub Secrets for sensitive credentials
-- ⏰ **Scheduled runs**: Configurable schedule (default: every 2 hours)
+- ⏰ **Scheduled runs**: Configurable schedule (default: every 5 minutes)
 - 📝 **State management**: Tracks the last published issue to avoid duplicates
 
 ## Setup Instructions
@@ -47,7 +47,7 @@ Automated bots that post new GitHub issues and pull requests to social media pla
 
 4. **Enable the Workflow**:
    
-   The workflow is located at `.github/workflows/mastodon-bot.yml` and will run automatically every 2 hours. You can also trigger it manually from the Actions tab.
+   The workflow is located at `.github/workflows/mastodon-bot.yml` and will run automatically every 5 minutes. You can also trigger it manually from the Actions tab.
 
 ### Bluesky Bot Setup
 
@@ -74,19 +74,21 @@ Automated bots that post new GitHub issues and pull requests to social media pla
 
 4. **Enable the Workflow**:
    
-   The workflow is located at `.github/workflows/bluesky-bot.yml` and will run automatically every 2 hours. You can also trigger it manually from the Actions tab.
+   The workflow is located at `.github/workflows/bluesky-bot.yml` and will run automatically every 5 minutes. You can also trigger it manually from the Actions tab.
 
 ## How It Works
 
 ### Workflow Schedule
 
-Both bots run on a schedule (every 2 hours by default). You can modify the schedule in the workflow files by changing the cron expression:
+Both bots run on a schedule (every 5 minutes by default). You can modify the schedule in the workflow files by changing the cron expression:
 
 ```yaml
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Every 2 hours
+    - cron: '*/5 * * * *'  # Every 5 minutes (minimum for GitHub Actions)
 ```
+
+**Note**: The original MastodonGitHubBot checked every 2 minutes, but GitHub Actions has a minimum cron schedule interval of 5 minutes. This is the closest we can get to the original behavior while using GitHub Actions.
 
 ### Issue Tracking
 

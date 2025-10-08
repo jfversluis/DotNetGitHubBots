@@ -11,7 +11,7 @@ This implementation provides GitHub Actions-based automation for posting GitHub 
    - `.github/workflows/bluesky-bot.yml` - Posts to Bluesky
 
 ### 2. **Automated Scheduling**
-   - Both workflows run every 2 hours on a schedule
+   - Both workflows run every 5 minutes on a schedule
    - Can also be triggered manually from the GitHub Actions UI
 
 ### 3. **Secure Credential Management**
