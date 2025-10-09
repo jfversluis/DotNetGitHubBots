@@ -29,12 +29,18 @@ jobs:
       
       - name: Fetch and post new issues to Bluesky
         env:
-          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
-          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
-          GITHUB_REPO_OWNER: ${{ secrets.GITHUB_REPO_OWNER }}
-          GITHUB_REPO_NAME: ${{ secrets.GITHUB_REPO_NAME }}
+          # Bot repository configuration
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BOT_REPO_OWNER: ${{ github.repository_owner }}
           BOT_REPO_NAME: ${{ github.event.repository.name }}
+          BOT_CONFIG_PATH: bot-config.json
+          
+          # Bluesky credentials for dotnet-core group
+          BLUESKY_HANDLE_DOTNET_CORE: ${{ secrets.BLUESKY_HANDLE_DOTNET_CORE }}
+          BLUESKY_PASSWORD_DOTNET_CORE: ${{ secrets.BLUESKY_PASSWORD_DOTNET_CORE }}
+          
+          # Bluesky credentials for dotnet-maui group
+          BLUESKY_HANDLE_DOTNET_MAUI: ${{ secrets.BLUESKY_HANDLE_DOTNET_MAUI }}
+          BLUESKY_PASSWORD_DOTNET_MAUI: ${{ secrets.BLUESKY_PASSWORD_DOTNET_MAUI }}
         run: |
           python scripts/bluesky_bot.py

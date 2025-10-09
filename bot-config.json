@@ -1,0 +1,38 @@
+{
+  "bots": [
+    {
+      "name": "dotnet-core",
+      "description": "Bot for .NET Core runtime and extensions repositories",
+      "repositories": [
+        {"owner": "dotnet", "name": "runtime"},
+        {"owner": "dotnet", "name": "extensions"},
+        {"owner": "dotnet", "name": "maintenance-packages"}
+      ],
+      "mastodon": {
+        "instance_secret": "MASTODON_INSTANCE_DOTNET_CORE",
+        "token_secret": "MASTODON_TOKEN_DOTNET_CORE",
+        "visibility_secret": "MASTODON_VISIBILITY_DOTNET_CORE"
+      },
+      "bluesky": {
+        "handle_secret": "BLUESKY_HANDLE_DOTNET_CORE",
+        "password_secret": "BLUESKY_PASSWORD_DOTNET_CORE"
+      }
+    },
+    {
+      "name": "dotnet-maui",
+      "description": "Bot for .NET MAUI repository",
+      "repositories": [
+        {"owner": "dotnet", "name": "maui"}
+      ],
+      "mastodon": {
+        "instance_secret": "MASTODON_INSTANCE_DOTNET_MAUI",
+        "token_secret": "MASTODON_TOKEN_DOTNET_MAUI",
+        "visibility_secret": "MASTODON_VISIBILITY_DOTNET_MAUI"
+      },
+      "bluesky": {
+        "handle_secret": "BLUESKY_HANDLE_DOTNET_MAUI",
+        "password_secret": "BLUESKY_PASSWORD_DOTNET_MAUI"
+      }
+    }
+  ]
+}
