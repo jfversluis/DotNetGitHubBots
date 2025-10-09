@@ -10,7 +10,7 @@ Automated bots that post new GitHub issues and pull requests to social media pla
 - ⚙️ **GitHub Actions powered**: Runs entirely on GitHub Actions, no external hosting required
 - 🔒 **Secure**: Uses GitHub Secrets for sensitive credentials
 - ⏰ **Scheduled runs**: Configurable schedule (default: every 5 minutes)
-- 📝 **Duplicate prevention**: Uses time-based filtering with in-memory deduplication to prevent duplicate posts
+- 📝 **Persistent state**: Uses GitHub issues in this repository to track posted issues (no external database needed)
 
 ## Setup Instructions
 
@@ -78,13 +78,15 @@ on:
 
 **Note**: The original MastodonGitHubBot checked every 2 minutes, but GitHub Actions has a minimum cron schedule interval of 5 minutes. This is the closest we can get to the original behavior while using GitHub Actions.
 
-### Issue Detection
+### State Persistence
 
-The bots use time-based filtering to detect new issues:
-- Each run checks for issues created in the last 10 minutes (configurable via `INTERVAL_MINUTES`)
-- This covers 2 workflow runs (at 5-minute intervals) to ensure no issues are missed
-- Duplicate prevention is handled in-memory during each run
-- No persistent state is required, making it compatible with stateless GitHub Actions runners
+The bots use GitHub issues in this repository for persistent state tracking:
+- A tracking issue is automatically created for each target repository (e.g., "Mastodon Bot State - owner/repo")
+- The issue body contains a JSON object with the list of posted issue numbers
+- Each run reads the tracking issue to see what's already been posted
+- After posting new issues, the tracking issue is updated
+- This provides reliable persistence without needing external databases or GitHub Variables
+- The tracking issues are labeled with `bot-state` for easy identification
 
 ### Manual Trigger
 
@@ -133,17 +135,22 @@ You can:
 1. Check that all required secrets are set correctly
 2. Check the Actions tab for error logs
 3. Ensure your access tokens haven't expired
-4. Verify the repository has had new issues/PRs in the last 10 minutes
+4. Check that the workflow has `issues: write` permission
+5. Look for the tracking issue in the Issues tab (labeled with `bot-state`)
 
 ### Duplicate posts
 
-The bots use in-memory duplicate prevention during each run. Duplicates should only occur if:
-- Multiple workflow runs happen simultaneously (rare)
-- You manually trigger the workflow multiple times quickly
+Duplicates should not occur with the GitHub issue-based persistence. If they do:
+- Check that the tracking issue exists and is being updated
+- Verify the workflow has `issues: write` permission
+- Check the tracking issue body to see what's recorded
 
-To avoid this:
-- Don't trigger the workflow manually while a scheduled run is active
-- Adjust `INTERVAL_MINUTES` if you change the schedule
+### Reset bot state
+
+To start over or fix tracking issues:
+1. Find the tracking issue (search for "Bot State" in Issues)
+2. Edit the issue body to remove specific issue numbers or reset to `{"posted_issues": [], "last_updated": null}`
+3. Or close/delete the tracking issue - a new one will be created on next run
 
 ### Rate limiting
 

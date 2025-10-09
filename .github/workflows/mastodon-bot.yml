@@ -10,6 +10,9 @@ on:
 jobs:
   post-to-mastodon:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write  # Required to create/update tracking issues
     
     steps:
       - name: Checkout repository
@@ -31,6 +34,8 @@ jobs:
           GITHUB_REPO_OWNER: ${{ secrets.GITHUB_REPO_OWNER }}
           GITHUB_REPO_NAME: ${{ secrets.GITHUB_REPO_NAME }}
           VISIBILITY: ${{ secrets.MASTODON_VISIBILITY || 'unlisted' }}
-          INTERVAL_MINUTES: '10'  # Check last 10 minutes (covers 2 workflow runs)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_REPO_OWNER: ${{ github.repository_owner }}
+          BOT_REPO_NAME: ${{ github.event.repository.name }}
         run: |
           python scripts/mastodon_bot.py

@@ -23,7 +23,7 @@ GITHUB_REPO_OWNER=dotnet
 GITHUB_REPO_NAME=runtime
 ```
 
-**Note**: No variables are needed! The bots use time-based filtering instead of persistent state.
+**Note**: No variables are needed! The bots use GitHub issues in this repository for persistent state tracking.
 
 ## How to Get Credentials
 
@@ -44,6 +44,7 @@ GITHUB_REPO_NAME=runtime
 ## Important Notes
 
 - Never commit secrets to your repository
-- The `GITHUB_TOKEN` is automatically provided by GitHub Actions for API rate limit improvements
-- No persistent state or variables are needed - the bots use time-based filtering
+- The `GITHUB_TOKEN` is automatically provided by GitHub Actions
+- State is persisted using tracking issues in this repository (labeled `bot-state`)
+- The workflows need `issues: write` permission to create/update tracking issues
 - Secrets cannot be read or updated by workflows, only used

@@ -2,12 +2,13 @@
 """
 Mastodon GitHub Bot
 Fetches new issues/PRs from a GitHub repository and posts them to Mastodon.
+Uses a tracking issue in the bot repository for persistence.
 """
 
 import os
 import sys
+import json
 import requests
-from datetime import datetime, timedelta
 from mastodon import Mastodon
 
 def get_env_var(name, default=None, required=True):
@@ -18,30 +19,100 @@ def get_env_var(name, default=None, required=True):
         sys.exit(1)
     return value
 
-def get_recent_issues(repo_owner, repo_name, since_minutes=10):
-    """Fetch issues and PRs from GitHub created in the last N minutes."""
+def get_tracking_issue(bot_repo_owner, bot_repo_name, github_token, tracking_title):
+    """Get or create the tracking issue for storing posted issue numbers."""
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"Bearer {github_token}"
+    }
+    
+    # Search for existing tracking issue
+    search_url = f"https://api.github.com/search/issues"
+    params = {
+        "q": f'repo:{bot_repo_owner}/{bot_repo_name} is:issue in:title "{tracking_title}"'
+    }
+    
+    try:
+        response = requests.get(search_url, params=params, headers=headers, timeout=30)
+        response.raise_for_status()
+        results = response.json()
+        
+        if results['total_count'] > 0:
+            # Found existing tracking issue
+            issue = results['items'][0]
+            print(f"Found existing tracking issue: #{issue['number']}")
+            return issue
+        
+        # Create new tracking issue
+        print("Creating new tracking issue for state persistence...")
+        create_url = f"https://api.github.com/repos/{bot_repo_owner}/{bot_repo_name}/issues"
+        data = {
+            "title": tracking_title,
+            "body": json.dumps({"posted_issues": [], "last_updated": None}),
+            "labels": ["bot-state"]
+        }
+        
+        response = requests.post(create_url, json=data, headers=headers, timeout=30)
+        response.raise_for_status()
+        issue = response.json()
+        print(f"Created tracking issue: #{issue['number']}")
+        return issue
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error managing tracking issue: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def get_posted_issues(tracking_issue):
+    """Extract the list of posted issue numbers from tracking issue."""
+    try:
+        body = tracking_issue.get('body', '{}')
+        state = json.loads(body)
+        return set(state.get('posted_issues', []))
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"Warning: Could not parse tracking issue body, starting fresh: {e}")
+        return set()
+
+def update_tracking_issue(bot_repo_owner, bot_repo_name, github_token, tracking_issue_number, posted_issues):
+    """Update the tracking issue with new posted issue numbers."""
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"Bearer {github_token}"
+    }
+    
+    url = f"https://api.github.com/repos/{bot_repo_owner}/{bot_repo_name}/issues/{tracking_issue_number}"
+    
+    from datetime import datetime
+    state = {
+        "posted_issues": sorted(list(posted_issues)),
+        "last_updated": datetime.utcnow().isoformat()
+    }
+    
+    data = {
+        "body": json.dumps(state, indent=2)
+    }
+    
+    try:
+        response = requests.patch(url, json=data, headers=headers, timeout=30)
+        response.raise_for_status()
+        print(f"Updated tracking issue with {len(posted_issues)} posted issues")
+    except requests.exceptions.RequestException as e:
+        print(f"Warning: Could not update tracking issue: {e}", file=sys.stderr)
+
+def get_target_issues(repo_owner, repo_name, github_token):
+    """Fetch open issues and PRs from the target GitHub repository."""
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/issues"
     
-    # Calculate the time threshold
-    since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
-    since_iso = since_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-    
     params = {
-        "state": "all",  # Get both open and closed to avoid missing any
+        "state": "open",
         "sort": "created",
         "direction": "desc",
-        "since": since_iso,
         "per_page": 100
     }
     
     headers = {
-        "Accept": "application/vnd.github.v3+json"
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"Bearer {github_token}"
     }
-    
-    # Add GitHub token if available for higher rate limits
-    github_token = os.environ.get("GITHUB_TOKEN")
-    if github_token:
-        headers["Authorization"] = f"Bearer {github_token}"
     
     try:
         response = requests.get(url, params=params, headers=headers, timeout=30)
@@ -56,15 +127,8 @@ def get_recent_issues(repo_owner, repo_name, since_minutes=10):
         print(f"Error fetching issues from GitHub: {e}", file=sys.stderr)
         sys.exit(1)
 
-def post_to_mastodon(mastodon_client, issue, visibility, posted_ids):
-    """Post an issue/PR to Mastodon if not already posted."""
-    issue_id = issue['number']
-    
-    # Check if already posted in this run (duplicate prevention)
-    if issue_id in posted_ids:
-        print(f"⊘ Skipping duplicate #{issue_id}: {issue['title']}")
-        return False
-    
+def post_to_mastodon(mastodon_client, issue, visibility):
+    """Post an issue/PR to Mastodon."""
     # Determine if it's a PR or issue
     issue_type = "PR" if "pull_request" in issue else "Issue"
     
@@ -79,7 +143,6 @@ def post_to_mastodon(mastodon_client, issue, visibility, posted_ids):
         status = mastodon_client.status_post(text, visibility=visibility)
         print(f"✓ Posted {issue_type} #{issue['number']}: {issue['title']}")
         print(f"  Mastodon URL: {status['url']}")
-        posted_ids.add(issue_id)
         return True
     except Exception as e:
         print(f"✗ Error posting {issue_type} #{issue['number']}: {e}", file=sys.stderr)
@@ -90,18 +153,28 @@ def main():
     # Get configuration from environment variables
     mastodon_instance = get_env_var("MASTODON_INSTANCE")
     mastodon_access_token = get_env_var("MASTODON_ACCESS_TOKEN")
-    repo_owner = get_env_var("GITHUB_REPO_OWNER")
-    repo_name = get_env_var("GITHUB_REPO_NAME")
+    target_repo_owner = get_env_var("GITHUB_REPO_OWNER")
+    target_repo_name = get_env_var("GITHUB_REPO_NAME")
     visibility = get_env_var("VISIBILITY", default="unlisted", required=False)
     
-    # Get the interval (default to 10 minutes to cover 2 workflow runs at 5-minute intervals)
-    interval_minutes = int(get_env_var("INTERVAL_MINUTES", default="10", required=False))
+    # Bot repository for tracking (defaults to this repository)
+    bot_repo_owner = get_env_var("BOT_REPO_OWNER", default=target_repo_owner, required=False)
+    bot_repo_name = get_env_var("BOT_REPO_NAME", default="DotNetGitHubBots", required=False)
+    github_token = get_env_var("GITHUB_TOKEN")
+    
+    tracking_title = f"Mastodon Bot State - {target_repo_owner}/{target_repo_name}"
     
     print(f"Starting Mastodon GitHub Bot")
-    print(f"Repository: {repo_owner}/{repo_name}")
-    print(f"Checking for issues created in the last {interval_minutes} minutes")
+    print(f"Target repository: {target_repo_owner}/{target_repo_name}")
+    print(f"Bot repository: {bot_repo_owner}/{bot_repo_name}")
     print(f"Mastodon instance: {mastodon_instance}")
     print(f"Visibility: {visibility}")
+    print()
+    
+    # Get or create tracking issue
+    tracking_issue = get_tracking_issue(bot_repo_owner, bot_repo_name, github_token, tracking_title)
+    posted_issues = get_posted_issues(tracking_issue)
+    print(f"Previously posted: {len(posted_issues)} issues")
     print()
     
     # Initialize Mastodon client
@@ -110,26 +183,37 @@ def main():
         api_base_url=f"https://{mastodon_instance}"
     )
     
-    # Fetch recent issues
-    print(f"Fetching issues from the last {interval_minutes} minutes...")
-    recent_issues = get_recent_issues(repo_owner, repo_name, interval_minutes)
-    print(f"Found {len(recent_issues)} issues/PRs created recently")
+    # Fetch target repository issues
+    print("Fetching issues from target repository...")
+    all_issues = get_target_issues(target_repo_owner, target_repo_name, github_token)
+    
+    # Filter out already posted issues
+    new_issues = [issue for issue in all_issues if issue['number'] not in posted_issues]
+    print(f"Found {len(all_issues)} open issues/PRs, {len(new_issues)} are new")
     print()
     
-    if not recent_issues:
+    if not new_issues:
         print("No new issues to publish")
         return
     
-    # Post each issue to Mastodon with duplicate tracking
+    # Post each new issue to Mastodon
     posted_count = 0
-    posted_ids = set()
+    newly_posted = set()
     
-    for issue in recent_issues:
-        if post_to_mastodon(mastodon, issue, visibility, posted_ids):
+    for issue in new_issues:
+        if post_to_mastodon(mastodon, issue, visibility):
             posted_count += 1
+            newly_posted.add(issue['number'])
     
     print()
-    print(f"Summary: Posted {posted_count} out of {len(recent_issues)} issues/PRs")
+    print(f"Summary: Posted {posted_count} out of {len(new_issues)} new issues/PRs")
+    
+    # Update tracking issue with newly posted issues
+    if newly_posted:
+        all_posted = posted_issues | newly_posted
+        update_tracking_issue(bot_repo_owner, bot_repo_name, github_token, 
+                            tracking_issue['number'], all_posted)
+        print(f"Total posted issues tracked: {len(all_posted)}")
 
 if __name__ == "__main__":
     main()

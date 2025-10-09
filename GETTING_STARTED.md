@@ -90,7 +90,8 @@ This guide will walk you through setting up the GitHub bots from scratch.
 ### Successful Run:
 - You should see green checkmarks
 - Check your Mastodon/Bluesky feed for new posts
-- The bot will have posted any issues created in the last 10 minutes
+- A tracking issue will be created in this repository (labeled `bot-state`)
+- The tracking issue stores which issues have been posted
 
 ### Failed Run:
 - Click on the failed run to see error logs
@@ -98,11 +99,15 @@ This guide will walk you through setting up the GitHub bots from scratch.
   - Invalid credentials
   - Missing secrets
   - Wrong repository owner/name
-  - No new issues in the last 10 minutes
+  - Permissions issue (workflow needs `issues: write` permission)
 
 ## Step 5: Verify Scheduled Runs
 
 The bots will now run automatically every 5 minutes. You can:
+- Monitor runs in the Actions tab
+- Check the tracking issues to see what's been posted
+- Adjust the schedule in the workflow files if needed
+- Disable/enable workflows as needed
 - Monitor runs in the Actions tab
 - Adjust the schedule in the workflow files if needed
 - Disable/enable workflows as needed
@@ -115,9 +120,9 @@ The bots will now run automatically every 5 minutes. You can:
 - Check spelling and capitalization
 
 ### "No new issues to publish"
-- This is normal if there are no new issues created in the last 10 minutes
-- The bot checks issues created within the last 10 minutes by default
-- If you want to test, create a new issue and run the workflow manually
+- This is normal if all open issues have already been posted
+- Check the tracking issue (labeled `bot-state`) to see what's been posted
+- Create a new issue in the target repository to test
 
 ### "Invalid credentials"
 - Mastodon: Regenerate access token and update secret
@@ -153,11 +158,12 @@ Before asking for help, verify:
 
 - [ ] All required secrets are set in GitHub
 - [ ] Workflow files are present in `.github/workflows/`
+- [ ] Workflows have `issues: write` permission (check workflow files)
 - [ ] You've tried running the workflow manually
 - [ ] You've checked the workflow logs for errors
 - [ ] Repository owner and name are correct
 - [ ] Credentials are valid and not expired
-- [ ] Repository has had new issues/PRs in the last 10 minutes (for testing)
+- [ ] Check the tracking issues (labeled `bot-state`) to see bot state
 
 ---
 
