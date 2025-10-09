@@ -1,0 +1,48 @@
+name: Mastodon GitHub Bot
+
+on:
+  schedule:
+    # Run every 5 minutes (minimum allowed by GitHub Actions)
+    # Note: Original bot used 2 minutes, but GitHub Actions minimum is 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  post-to-mastodon:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write  # Required to create/update tracking issues
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install Mastodon.py requests
+      
+      - name: Fetch and post new issues to Mastodon
+        env:
+          # Bot repository configuration
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_REPO_OWNER: ${{ github.repository_owner }}
+          BOT_REPO_NAME: ${{ github.event.repository.name }}
+          BOT_CONFIG_PATH: bot-config.json
+          
+          # Mastodon credentials for dotnet-core group
+          MASTODON_INSTANCE_DOTNET_CORE: ${{ secrets.MASTODON_INSTANCE_DOTNET_CORE }}
+          MASTODON_TOKEN_DOTNET_CORE: ${{ secrets.MASTODON_TOKEN_DOTNET_CORE }}
+          MASTODON_VISIBILITY_DOTNET_CORE: ${{ secrets.MASTODON_VISIBILITY_DOTNET_CORE || 'unlisted' }}
+          
+          # Mastodon credentials for dotnet-maui group
+          MASTODON_INSTANCE_DOTNET_MAUI: ${{ secrets.MASTODON_INSTANCE_DOTNET_MAUI }}
+          MASTODON_TOKEN_DOTNET_MAUI: ${{ secrets.MASTODON_TOKEN_DOTNET_MAUI }}
+          MASTODON_VISIBILITY_DOTNET_MAUI: ${{ secrets.MASTODON_VISIBILITY_DOTNET_MAUI || 'unlisted' }}
+        run: |
+          python scripts/mastodon_bot.py
